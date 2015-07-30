@@ -2,34 +2,65 @@
 title: "A short R heatmap tutorial"
 author: "A.Bailey"
 date: "29 July 2015"
-output: html_document
+output:
+  pdf_document:
+    fig_caption: yes
+    fig_height: 6
+    highlight: tango
+    includes:
+      in_header: mysty.sty
+    toc: yes
+  html_document:
+    toc: yes
 ---
-This is a short tutorial for producing heatmaps in R using a test data set 
-provided by Leanne Wickens. I assume the reader is able to install packages,
-load libraries etc. in RStudio to use this code.
+## Introduction
+This is a short tutorial for producing heatmaps in R using a modified data set 
+provided by Leanne Wickens. I assume the reader is reasonably
+au fait with R Studio and able to install packages, load libraries etc..... 
+in order to use this code. It should be possible to replicate this analysis
+exactly following the code below.
 
-### Loading and preprocessing the data
+**Note** Use the question mark `?` in front any function in R to see all the details of a function in the help file e.g. `?read.csv`. Or Google for examples 
+on Stackoverflow.
 
-The global settings for the R markdown file are to show the R code, cache the 
-data and load the required packages:
+## The purpose of this analysis
+Here we have a test data set of 63 proteins from 6 experiments where cells
+were either untreated (controls) or treated with a growth factor to examine the
+effect on protein expression. Hence the questions we seek to answer are:
+
+- Can we identify and group proteins that either increase or decrease their expression when treated as compared with untreated cells?
+
+- Is this consistent between experiments? i.e. Are the experiments reproducible?
+
+- Can we visualise the analysis as a heatmap?
+
+
+### Prepare,load and preprocessing the data
+
+The knitr settings for the R markdown file are to show the R code, cache the 
+data and load the required packages and set the figure dimensions:
 ```{r setoptions, echo=TRUE,results='asis',cache=TRUE}
 knitr::opts_chunk$set(cache=TRUE,echo=TRUE,cache=TRUE, message=FALSE, 
                       warning=FALSE, fig=TRUE,eval=TRUE,
                       fig.width=9, fig.height = 9,fig.lp='fig:')
+```
+
+These are the two packages we need to load in addition to the base packages for 
+performing the analysis
+
+```{r, setup-workspace,message=FALSE,warning=FALSE}
 library(d3heatmap)
 library(gplots)
 ```
 
-For test data to load, I first provide the URL to Leanne's test data which
-contains observations for 63 proteins for three control experiments and three
-experiments where the proteins are exposed to TGF-$\beta$.
+For test data to load, here is the URL to Leanne's modified test data which contains anonymised observations for 63 proteins for three control experiments and three experiments where cells are treated with a growth factor.
 
 ```{r}
 fileUrl <- "https://github.com/ab604/heatmap/blob/master/leanne_testdata.csv"
 ```
 
-If the data file `leanne_testdata.csv` is not already downloaded, this is 
-the code to get it. It also produces a log file:
+If the data file `leanne_testdata.csv` is not already downloaded to your working
+directory, this is the code to get it. It also produces a log file:
 
 ```{r}        
 if(!file.exists("leanne_testdata.csv")){
@@ -43,105 +74,211 @@ if(!file.exists("leanne_testdata.csv")){
 }
 ```
 
-Next we load the data and tidy it up a bit. Here first I create some meaningful
-column names as `cols` for the accession codes for the proteins in the rows, the three controls and three TGF-$\beta$ experiments respectively. 
-These names are used when reading in the `.csv` file with `read.csv` to the `dat` data frame, by declaring `col.names = cols`. `row.names = 1` makes it read column
-one, the protein accession codes, as row names.
-
-Here I also set my colour palette as blue, white and red for the heatmap for 
-later as `my_palette` with 25 increments.
-
-I then extract columns 1 to 6 to a new data frame called `dat.tdy` as we don't
-need the last column. (Try `View(dat)` to see why.)
-
-We normalise the data using `scale`, transposing `dat.tdy` using `t` to 
-perform row-wise normalision so that: $z = \frac{x - \mu}\sigma$ to create `dat.n`
-
-Additionally, I've transposed the data back to the original form, but this is
-purely for aesthetics.
+Next we load the data into R. Here first I created some meaningful
+column names as `cols` for the three controls and three treated experiments 
+respectively. 
+These names are used when reading in the `.csv` file with `read.csv` to the `dat` 
+data frame, by declaring `col.names = cols`. `row.names = 1` makes it read column
+one (and I don't need to rename this column) the protein accession codes, as row 
+names - here these are just numbers from 1 to 63.
 
 ```{r, preprocess-data}
 # Create columnn names for data
-cols <- c("Acc","None.1","None.2","None.3","TGFB.1",
-          "TGFB.2","TGFB.3","Ttest")
-
-# Set colours for heatmap, 25 increments
-my_palette <- colorRampPalette(c("blue","white","red"))(n = 25)
+cols <- c("","Control.1","Control.2","Control.3","Treated.1",
+          "Treated.2","Treated.3","Ttest")
 
 # Load data, re-naming columns and taking column 1 for row names.
 dat <- read.csv("leanne_testdata.csv", row.names = 1,
                 stringsAsFactors = FALSE, col.names = cols, header = TRUE)
+```
 
+We can see how that looks by using the `head` command:
+```{r,check-dat}
+# Look at first five lines of dat
+head(dat,5)
+```
+
+We don't want the Ttest column, so let's sort that out next.
+
+### Tidying and normalising the data
+I then extract columns 1 to 6 to a new data frame called `dat.tdy` as we don't
+need the last column.
+
+```{r,tidy-data}
 # Tidy the data, extract only columns 1 to 6
 dat.tdy <- dat[,1:6]
 
+# Look at first 5 lines of the tidy data
+head(dat.tdy,5)
+```
+We normalise the data using `scale`, transposing `dat.tdy` using `t` to 
+perform row-wise normalisation so that: $z = \frac{x - \mu}\sigma$ to create `dat.n`
+
+Additionally, I've transposed the data back to the original form as `dat.tn`, for
+use later on.
+```{r, normalise-data}
 # Normalize tidy data, transpose for row wise normalisation
 dat.n <- scale(t(dat.tdy))
 
-# Put data back in original form for heatmap
+# Put data back in original form
 dat.tn <- t(dat.n)
 ```
 
-To check the normalisation, here we calculate the means and standard deviation
-for each row (each protein):
-
+Just for completeness, to check the normalisation, here we calculate the means 
+and standard deviation for each row (each protein):
 ```{r, check-norm}
 # Check means are zero and std devs are 1
 round(colMeans(dat.n),1)
 apply(dat.n,2,sd)
 ```
 
-Next we do the hierarchical clustering needed for the heatmap. First we calculate 
-the distance between the rows in `dat.n`. In this case this is linear distance is 
-between the experiments for each protein. The experiments are in the rows and the
-proteins in the columns in `dat.n`. For example the distance between `None.1` and
-`None.2` is `sqrt(sum((dat.n[1,]-dat.n[2,])^2))`. This means we take each
-row 2 value from row 1 value, square that result, sum all those results to a 
-single value and take the square root to find the linear distance between these
-rows, which is `r round(sqrt(sum((dat.n[1,]-dat.n[2,])^2)),3)` and you can check 
-this  against the first value in `d1`.
+## Hierarchical clustering
+Next we do the hierarchical clustering needed for the heatmap. We could just let the heatmap function do the work, but here we'll do it step by step to understand what is going on.
+
+### Relating data points as distances
+So we have our data here as concentrations, but how do we group them? 
+The simplest thing to do is to turn the data into distances, as a measure of similarity, where close things are similar and distant things are dissimilar.
+
+The Euclidean distance $d$ between a pair of observations $x_i$ and $y_i$ is defined as:
+
+$d = \sqrt{\sum{_i}(x_i - y_i)^2}$
+
+So lets calculate the distance between the rows in `dat.n`. In `dat.n`
+the experiments are in the rows. This calculates is distance is between the experiments for all the proteins in each experiment. What would we expect?
+
+We'd expect the controls to be close to each other and the treated to be close
+to each other, right?
+
+Let's do this in detail, for example the distance between `Control.1` and
+`Control.2` is `sqrt(sum((dat.n[1,]-dat.n[2,])^2))`. 
+
+This means we take the row 2 values from row 1 values, squaring the results and summing them all to a  single value and taking the square root to find the linear distance between these
+rows, which is `r round(sqrt(sum((dat.n[1,]-dat.n[2,])^2)),3)`. 
+
+You can check  this against the first value in `d1` that we calculate below in using `dist`.
 
 ```{r,distance-1}
-# Calculate distance between data in columns
+# Calculate distance between experiments in rows
 d1 <- dist(dat.n,method = "euclidean", diag = FALSE, upper = FALSE)
+
+# Show distances
+round(d1,3)
 ```
 
+As we expected, controls are closer to each other than treated and vice versa.
 Then we cluster according to these distances.
 
-```{r, cluster-1}
-## Column clustering (adjust here distance/linkage methods to what you need!)
-c1 <- hclust(d1, method = "ward.D", members = NULL)
-```
+Let's do the same for the rows in `dat.tn` where the rows are the proteins
+and the columns are experiments. This time we're calculating how similar
+each protein is to each other across all six experiments. 
+We don't know what to expect here, but the principle is the same.
 
-Then we do the same
-```{r, distance-cluster-2}
-# Calculate distance between data in rows
+```{r, distance-2}
+# Calculate distance between proteins in rows
 d2 <- dist(dat.tn,method = "euclidean", diag = FALSE, upper = TRUE)
-# Row clustering (adjust here distance/linkage methods to what you need!)
-c2 <- hclust(d2, method = "ward.D", members = NULL)
 ```
 
-To check this is doing something sensible, lets look at the dendrograms made
-clustering our distance matrices `d1` and `d2`:
+So now we have two distance matrices, one measuring experimental similarity and the measuring protein similarity between the experiments. But it would be more
+useful to cluster these results and then compare them, so let's do that now.
+
+**Notes** 
+
+- We could have done this just using `dat.n` and transposed it when we used 
+`dist` to obtain the `d2` distance matrix. 
+
+- We had to make two distance matrices here as we didn't have a square matrix 
+i.e. the number of rows and columns aren't equal in `dat`. If they were square 
+we could just make one and only do one clustering.
+
+## Clustering
+There are lots of flavours of clustering, and no clear way to say which is best.
+Here we'll use the Ward criterion for clustering which attempts to minimise the 
+variance within clusters as it merges the data into clusters, using the distances
+we've calculated. The data is merged from the bottom up (aka agglomeration) adding
+data points to a cluster and splitting them according to the variance criterion.
+See Wikipedia for more detail:
+[Hierarchical clustering](https://en.wikipedia.org/wiki/Hierarchical_clustering) 
+
+We'll cluster both distance matrices `d1` and `d2` here using `hclust`.
+
+```{r, clustering}
+# Clustering distance between experiments using Ward linkage
+c1 <- hclust(d1, method = "ward.D2", members = NULL)
+# Clustering distance between proteins using Ward linkage
+c2 <- hclust(d2, method = "ward.D2", members = NULL)
+```
+
+Now lets look at the dendrograms made by
+clustering our distance matrices `d1` and `d2` using the code below:
 
 ```{r, dendrogam}
-# Check col and row clustering by plotting dendrograms
-par(mfrow=c(2,1),cex=0.5) # Shrink labels
-plot(c1); plot(c2)
-
+# Check clustering by plotting dendrograms
+par(mfrow=c(2,1),cex=0.5) # Make 2 rows, 1 col plot frame and shrink labels
+plot(c1); plot(c2) # Plot both cluster dendrograms
 ```
 
-```{r, heatmap-1}
-## Plot heatmap wit heatmap.2
-#pdf(file="test.pdf",paper = "a4")
+Again, as we'd expect, the controls and treatments to cluster respectively.
+
+## Creating a heatmap from both clustering solutions
+We can now use our clustering solutions to make a heatmap. Here I used `heatmap.2`
+and provide the code to make an optional interactive HTML heatmap using `d3heatmap`.
+
+The following code plots the tidy, normalised data in `dat.tn`, arranged
+column wise according to the experiments clusters `c1` and the protein clusters
+`c2` row wise. 
+
+This means that we can compare experimental differences for each protein and
+between control and treatment in a single plot.
+
+I also set my colour palette as blue, white and red for the heatmap for as `my_palette` with 25 increments, but you can change this to whatever you wish.
+
+Here red indicates an increase in a proteins expression compared the mean 
+expression for that protein, and blue a decrease in expression compared to the 
+mean. So we can clearly see which proteins increase and decrease their expression
+in cells that have been treated as compared with controls, and see for which 
+proteins this is consistent across all experiments.
+
+```{r, heatmap-1, fig.cap="Heatmap of test data"}
+# Set colours for heatmap, 25 increments
+my_palette <- colorRampPalette(c("blue","white","red"))(n = 25)
+
+# Plot heatmap with heatmap.2
+par(cex.main=0.75) # Shrink title fonts on plot
+heatmap.2(dat.tn,                     # Tidy, normalised data
+          Colv=as.dendrogram(c1),     # Experiments clusters in cols
+          Rowv=as.dendrogram(c2),     # Protein clusters in rows
+          density.info="histogram",   # Plot histogram of data and colour key
+          trace="none",               # Turn of trace lines from heat map
+          col = my_palette,           # Use my colour scheme
+          cexRow=0.5,cexCol=0.75)     # Amend row and column label fonts
+```
+
+### Extras
+Below is code for outputting the heatmap to a `.pdf`, and to `.png` for Word
+or Power-point.
+```{r, print-figure,eval=FALSE}
+# Plot heatmap with heatmap.2
+
+# Open a file for pdf
+pdf(file="my_heatmap.pdf",paper = "a4") 
 par(cex.main=0.75) # Shrink title fonts
 heatmap.2(dat.tn, Colv=as.dendrogram(c1), Rowv=as.dendrogram(c2), 
           density.info="histogram", trace="none",col = my_palette,
           cexRow=0.5,cexCol=0.75)
-#dev.off()
-```
+# Close file
+dev.off()
 
-```{r, interactive-heatmap,cache=FALSE}
-# Create an interactive heatmap with d3heatmap
+# Open a file for a png for Word
+png(file="my_heatmap.png", width = 800, height = 800, units = "px", bg="white") 
+par(cex.main=0.75) # Shrink title fonts
+heatmap.2(dat.tn, Colv=as.dendrogram(c1), Rowv=as.dendrogram(c2), 
+          density.info="histogram", trace="none",col = my_palette,
+          cexRow=0.5,cexCol=0.75)
+# Close file
+dev.off()
+```
+Below is code to make an interactive heatmap for a webpage.
+```{r, interactive-heatmap,cache=FALSE,eval=FALSE}
+# Create an interactive HTML heatmap with d3heatmap
 d3heatmap(dat.tn,Rowv=as.dendrogram(c2),Colv=as.dendrogram(c1),col=my_palette)
 ```
