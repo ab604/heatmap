@@ -112,7 +112,12 @@ dat.tdy <- dat[,1:6]
 head(dat.tdy,5)
 ```
 We normalise the data using `scale`, transposing `dat.tdy` using `t` to 
-perform row-wise normalisation so that: $z = \frac{x - \mu}\sigma$ to create `dat.n`
+perform row-wise normalisation of the proteins, so that we normalise the proteins
+across each experiment and we can compare experiments:
+
+$z = \frac{x - \mu}\sigma$ 
+
+to create `dat.n`.
 
 Additionally, I've transposed the data back to the original form as `dat.tn`, for
 use later on.
@@ -211,7 +216,7 @@ c2 <- hclust(d2, method = "ward.D2", members = NULL)
 Now lets look at the dendrograms made by
 clustering our distance matrices `d1` and `d2` using the code below:
 
-```{r, dendrogam, fig.cap="Clustering dendrograms",fig.pos="h!"}
+```{r, dendrogam, fig.cap="Clustering dendrograms"}
 # Check clustering by plotting dendrograms
 par(mfrow=c(2,1),cex=0.5) # Make 2 rows, 1 col plot frame and shrink labels
 plot(c1); plot(c2) # Plot both cluster dendrograms
@@ -239,7 +244,7 @@ mean. So we can clearly see which proteins increase and decrease their expressio
 in cells that have been treated as compared with controls, and see for which 
 proteins this is consistent across all experiments.
 
-```{r, heatmap-1, fig.cap="Heatmap of test data", fig.pos="H"}
+```{r, heatmap-1, fig.cap="Heatmap of test data"}
 # Set colours for heatmap, 25 increments
 my_palette <- colorRampPalette(c("blue","white","red"))(n = 25)
 
