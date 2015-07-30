@@ -3,14 +3,14 @@ title: "A short R heatmap tutorial"
 author: "A.Bailey"
 date: "29 July 2015"
 output:
+  html_document:
+    toc: yes
   pdf_document:
     fig_caption: yes
     fig_height: 6
     highlight: tango
     includes:
       in_header: mysty.sty
-    toc: yes
-  html_document:
     toc: yes
 ---
 ## Introduction
@@ -279,7 +279,7 @@ heatmap.2(dat.tn, Colv=as.dendrogram(c1), Rowv=as.dendrogram(c2),
 dev.off()
 ```
 Below is code to make an interactive heatmap for a webpage.
-```{r, interactive-heatmap,cache=FALSE,eval=FALSE}
+```{r, interactive-heatmap,cache=FALSE,eval=TRUE}
 # Create an interactive HTML heatmap with d3heatmap
 d3heatmap(dat.tn,Rowv=as.dendrogram(c2),Colv=as.dendrogram(c1),col=my_palette)
 ```
