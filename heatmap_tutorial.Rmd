@@ -56,7 +56,7 @@ library(gplots)
 For test data to load, here is the URL to Leanne's modified test data which contains anonymised observations for 63 proteins for three control experiments and three experiments where cells are treated with a growth factor.
 
 ```{r}
-fileUrl <- "https://github.com/ab604/heatmap/blob/master/leanne_testdata.csv"
+fileUrl <- "https://raw.githubusercontent.com/ab604/heatmap/master/leanne_testdata.csv"
 ```
 
 If the data file `leanne_testdata.csv` is not already downloaded to your working
